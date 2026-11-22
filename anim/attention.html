@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Attention 是怎么算出权重的 · Learn by Building</title>
+<link rel="stylesheet" href="player.css">
+<style>
+  /* 本课专用编排 */
+  #s-row2{transition:opacity .3s}
+  .cell-mask{transition:opacity .3s}
+  body[data-cur="3"] .cell-mask{opacity:1}
+  .bar{transform-origin:left center;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+  body:not([data-cur="4"]):not([data-cur="5"]):not([data-cur="6"]) .bar{transform:scaleX(0)}
+  .rowband{transition:opacity .35s}
+  .headcard{transition:transform .4s cubic-bezier(.2,.8,.2,1)}
+</style>
+</head>
+<body class="lesson" data-steps="7">
+<div class="wrap">
+
+  <div class="top">
+    <a href="../index.html">← 学习地图</a>
+    <span class="tag">UNIT 05 · TRANSFORMER</span>
+  </div>
+
+  <div class="head">
+    <h1>Attention 是怎么算出权重的</h1>
+    <p class="sub">四个 token、一个 query，把 Q·K → 遮罩 → softmax → 加权求和 走一遍。左边是整句的注意力矩阵，右边是被拆开的那一行。</p>
+  </div>
+
+  <div class="stage">
+    <svg viewBox="0 0 980 508" role="img" aria-label="Attention 计算过程图解">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0 0 L10 5 L0 10 z" fill="#3b4557"/>
+        </marker>
+        <marker id="ar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0 0 L10 5 L0 10 z" fill="#22d3ee"/>
+        </marker>
+      </defs>
+
+      <!-- 顶部：token -->
+      <g id="tokens"></g>
+      <text x="88" y="16" fill="#5b6577" font-size="10.5" letter-spacing=".12em">输入 · 4 个 token</text>
+
+      <!-- s1：q k v -->
+      <g id="qkv" data-in="1"></g>
+      <text id="qkv-lb" data-in="1" x="378" y="90" fill="#818b9c" font-size="11.5">每列 × Wq / Wk / Wv</text>
+      <text id="qkv-sub" data-in="1" x="378" y="107" fill="#5b6577" font-size="10.5">三个矩阵，各自一份，四列不相通</text>
+
+      <!-- 左侧：注意力矩阵 -->
+      <g id="grid"></g>
+      <text id="grid-lb" data-in="0" x="88" y="446" fill="#5b6577" font-size="10.5">注意力矩阵 · 行 = query，列 = key，空白 = 被遮罩</text>
+
+      <!-- 右侧：拆开的一行 -->
+      <g id="rowband" class="rowband" data-in="2">
+        <rect x="396" y="140" width="540" height="1" fill="#1e2530"/>
+      </g>
+      <text id="pt" data-in="2" x="420" y="130" fill="#c3cad6" font-size="12.5">第 3 行：拿「垫子」的 <tspan fill="#22d3ee">q₂</tspan> 去问每一个 k</text>
+
+      <!-- 分数 -->
+      <text data-in="2" x="420" y="162" fill="#5b6577" font-size="10" letter-spacing=".1em">① 点积 · 分数</text>
+      <g id="scores"></g>
+
+      <!-- 遮罩 -->
+      <g id="maskArrow" data-in="3">
+        <text x="420" y="268" fill="#fb7185" font-size="11.5">因果遮罩：把 t &gt; i 的分数设成 −∞，不能偷看后面的词</text>
+      </g>
+
+      <!-- 权重 -->
+      <text data-in="4" x="420" y="300" fill="#5b6577" font-size="10" letter-spacing=".1em">② softmax · 权重</text>
+      <g id="weights"></g>
+
+      <!-- 加权求和 -->
+      <g id="mixArrow" data-in="5">
+        <path d="M420 412 L420 428" stroke="#3b4557" stroke-width="1.2" marker-end="url(#ar)"/>
+        <text x="432" y="426" fill="#818b9c" font-size="11.5">③ 按权重把 v 加权求和</text>
+      </g>
+      <g id="mix" data-in="5"></g>
+
+      <!-- s6：多头 -->
+      <g id="heads" data-in="6"></g>
+      <text id="heads-lb" data-in="6" x="420" y="348" fill="#c3cad6" font-size="12.5">8 个头并行，各自看不同的关系</text>
+      <text id="heads-sub" data-in="6" x="420" y="370" fill="#818b9c" font-size="11.5">拼接 → 线性层 → 这就是 Transformer 一层里的注意力部分</text>
+    </svg>
+  </div>
+
+  <div class="hud">
+    <div class="txt">
+      <div class="stepno" id="stepno">01 / 07</div>
+      <h2 id="ttl"></h2>
+      <p id="say"></p>
+    </div>
+    <div class="ctl">
+      <div class="btns">
+        <button id="prev" type="button">上一步</button>
+        <button id="next" type="button" class="primary">下一步 →</button>
+        <button id="play" type="button">播放</button>
+      </div>
+      <div class="dots" id="dots"></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>对应 <a href="../index.html#s5">UNIT 05 · Mini Transformer</a>。数值为示意，跑真模型时会得到小数更长的版本。</span>
+    <span>← → 键可以走，也可以直接拖动下面的进度条</span>
+  </div>
+</div>
+
+<script type="application/json" id="script">
+[
+ {"t":"一句话，先切成 token",
+  "say":"「小猫坐在垫子上」被切成 4 个 token。后面所有计算都在这 4 个位置上做 —— 句子长度，就是矩阵的行数。"},
+ {"t":"每个 token 生成三个向量",
+  "say":"每个 token 的 embedding 分别乘三个矩阵 <code>W_q</code> <code>W_k</code> <code>W_v</code>，得到 query（我在找什么）、key（我是什么）、value（我能提供什么）。注意这一步没有跨 token 交流，四列各算各的。"},
+ {"t":"拿「垫子」的 q，去问每一个 k",
+  "say":"点积同时衡量方向与强度：q₂ 和某个 k 越对齐，分数越高。四个 k 得到四个分数，左边矩阵的第 3 行就是这四个数。"},
+ {"t":"先把未来的位置遮掉",
+  "say":"生成时不能看到后面的词，否则等于偷看答案。做法是把 <code>c &gt; r</code> 的分数设成 <code>-∞</code>，softmax 之后自然是 0。<b>是加掩码，不是删位置</b> —— 形状必须保持不变，否则下一层对不上。"},
+ {"t":"softmax：分数变成权重",
+  "say":"<code>-∞</code> 变成 0，剩下三个归一化成和为 1 的权重：0.15 / 0.28 / 0.57。这就是「垫子」在这一层实际看了谁、各看多重。"},
+ {"t":"按权重把 value 加权求和",
+  "say":"输出不再属于某一个 token，而是前面所有 token 的混合。三个权重乘三个 v 相加，得到一个新的 3 维向量 —— 这是「垫子」在这一层的新表示，它已经带上了前文的语义。"},
+ {"t":"8 个头各看各的，拼起来才是这一层",
+  "say":"上面的过程在 8 个头里并行做，每个头学到的关注点不同：有的只看相邻词，有的盯着句首吸收全局，有的在抓主谓关系。8 个头的输出拼接后过线性层 —— 这是 Transformer 一层里的一半，另一半是前馈网络。"}
+]
+</script>
+
+<script>
+/* ---- 本课图形构建 ---- */
+const NS='http://www.w3.org/2000/svg';
+const mk=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+const el=id=>document.getElementById(id);
+const TOK=['小猫','坐在','垫子','上'];
+const GX=88, GC=66, GY=146;
+const W=[[1.00],[0.35,0.65],[0.15,0.28,0.57],[0.10,0.15,0.30,0.45]];
+
+/* token 方块，列与矩阵列对齐 */
+TOK.forEach((t,i)=>{
+  const x=GX+i*GC;
+  el('tokens').appendChild(mk('rect',{x:x+2,y:26,width:GC-4,height:38,rx:8,fill:'#151b24',stroke:'#2a3240','stroke-width':1}));
+  const tx=mk('text',{x:x+GC/2,y:50,'text-anchor':'middle',fill:'#e7eaf0','font-size':'13'});
+  tx.textContent=t; el('tokens').appendChild(tx);
+  el('tokens').appendChild(mk('text',{x:x+GC/2,y:76,'text-anchor':'middle',fill:'#4b5464','font-size':'9.5','font-family':'ui-monospace,monospace'})).textContent='t'+i;
+});
+
+/* s1：q / k / v 小方块 */
+TOK.forEach((t,i)=>{
+  const x=GX+i*GC+3;
+  [['q','#22d3ee'],['k','#a78bfa'],['v','#34d399']].forEach(([L,c],j)=>{
+    const g=el('qkv');
+    g.appendChild(mk('rect',{x:x+j*21,y:88,width:18,height:15,rx:3,fill:c,opacity:.18}));
+    g.appendChild(mk('rect',{x:x+j*21,y:88,width:18,height:15,rx:3,fill:'none',stroke:c,'stroke-width':1,opacity:.65}));
+    const tx=mk('text',{x:x+j*21+9,y:99.5,'text-anchor':'middle',fill:c,'font-size':'9.5','font-family':'ui-monospace,monospace'});
+    tx.textContent=L; g.appendChild(tx);
+  });
+});
+
+/* 注意力矩阵：第 0 步先给骨架（形状），第 2 步才填数 */
+(function grid(){
+  const g=el('grid');
+  for(let r=0;r<4;r++){
+    for(let c=0;c<4;c++){
+      const x=GX+c*GC, y=GY+r*GC;
+      const v=(c<=r)?W[r][c]:null;
+      // 骨架
+      g.appendChild(mk('rect',{x:x,y:y,width:GC-3,height:GC-3,rx:5,
+        fill:'#0f131a', stroke:'#232b38', 'stroke-width':1,
+        'stroke-dasharray': v===null?'3 3':'none','data-in':'0'}));
+      if(v!==null){
+        // 填色 + 数值
+        g.appendChild(mk('rect',{x:x,y:y,width:GC-3,height:GC-3,rx:5,
+          fill:'#22d3ee','fill-opacity':0.06+v*0.62,stroke:'#1d4e60','stroke-width':1,'data-in':'2'}));
+        const tx=mk('text',{x:x+(GC-3)/2,y:y+(GC-3)/2+4,'text-anchor':'middle',
+          fill: v>0.5?'#06232a':'#cfe9f2', 'font-size':'11.5','font-family':'ui-monospace,monospace','data-in':'2'});
+        tx.textContent=v.toFixed(2); g.appendChild(tx);
+      }
+    }
+  }
+  // 行 / 列标签
+  TOK.forEach((t,i)=>{
+    const ry=mk('text',{x:GX-12,y:GY+i*GC+GC/2,'text-anchor':'end',fill:'#818b9c','font-size':'11.5','data-in':'0'});
+    ry.textContent=t; g.appendChild(ry);
+    const cx=GX+i*GC+GC/2;
+    const cl=mk('text',{x:cx+4,y:GY-10,fill:'#5b6577','font-size':'11','transform':`rotate(-45 ${cx+4} ${GY-10})`,'data-in':'0'});
+    cl.textContent=t; g.appendChild(cl);
+  });
+  // 第 3 行高亮条
+  const band=mk('rect',{class:'rowband',id:'s-row2',x:GX-4,y:GY+2*GC-4,width:4*GC+1,height:GC+1,rx:6,
+    fill:'none',stroke:'#22d3ee','stroke-width':1.6,opacity:.9,'data-in':'2'});
+  g.appendChild(band);
+})();
+
+/* 分数框 */
+const SC=[1.8,2.4,3.1,2.9];
+SC.forEach((v,i)=>{
+  const x=420+i*122;
+  const g=el('scores');
+  g.appendChild(mk('text',{x:x+56,y:186,'text-anchor':'middle',fill:'#5b6577','font-size':'10','font-family':'ui-monospace,monospace'})).textContent='q₂ · k'+i;
+  g.appendChild(mk('rect',{x:x,y:194,width:112,height:46,rx:7,fill:'#131922',stroke:'#2a3240','stroke-width':1}));
+  const tx=mk('text',{class:'num',x:x+56,y:223,'text-anchor':'middle',fill: i===3?'#7b8494':'#e7eaf0','font-size':'15','data-in':'2'});
+  tx.textContent=v.toFixed(1); if(i===3) tx.setAttribute('data-out','3');
+  g.appendChild(tx);
+  if(i===3){
+    // 遮罩后：红框 + −∞（不用斜线，斜线会压住符号）
+    g.appendChild(mk('rect',{x:x,y:194,width:112,height:46,rx:7,fill:'#2a1017','fill-opacity':.55,
+      stroke:'#7f2b3c','stroke-width':1,'stroke-dasharray':'4 3','data-in':'3'}));
+    const mm=mk('text',{class:'num',x:x+56,y:224,'text-anchor':'middle',fill:'#fb7185','font-size':'17','data-in':'3'});
+    mm.textContent='−∞'; g.appendChild(mm);
+  }
+});
+// 逐个补 data-in（分数框整体第 2 步出现）
+document.querySelectorAll('#scores rect, #scores text').forEach(e=>{
+  if(!e.hasAttribute('data-in') && !e.hasAttribute('data-out')) e.setAttribute('data-in','2');
+});
+
+/* 权重框 + 条形 */
+const WT=[0.15,0.28,0.57,null];
+WT.forEach((v,i)=>{
+  const x=420+i*122, g=el('weights');
+  g.appendChild(mk('rect',{x:x,y:312,width:112,height:46,rx:7,fill:'#131922',
+    stroke: v===null?'#242c39':'#1d4e60','stroke-width':1,'stroke-dasharray': v===null?'3 3':'none','data-in':'4'}));
+  const tx=mk('text',{class:'num',x:x+56,y:341,'text-anchor':'middle',
+    fill: v===null?'#5b6577':'#a5f3fc','font-size':'15','data-in':'4'});
+  tx.textContent = v===null?'0.00':v.toFixed(2); g.appendChild(tx);
+  g.appendChild(mk('rect',{x:x,y:366,width:112,height:4,rx:2,fill:'#1b222d','data-in':'4'}));
+  if(v!==null){
+    const w=Math.max(4, v/0.6*112);
+    const b=mk('rect',{class:'bar',x:x,y:366,width:w,height:4,rx:2,fill:'#22d3ee','data-in':'4'});
+    g.appendChild(b);
+  }
+});
+
+/* s5：加权求和 */
+(function mix(){
+  const g=el('mix');
+  const line=mk('text',{class:'num',x:420,y:440,fill:'#818b9c','font-size':'11.5','data-in':'5'});
+  line.textContent='0.15·v₀  +  0.28·v₁  +  0.57·v₂   =';
+  g.appendChild(line);
+  const OUT=['0.63','0.59','0.64'];
+  OUT.forEach((v,i)=>{
+    const x=660+i*80;
+    g.appendChild(mk('rect',{x:x,y:420,width:70,height:34,rx:6,fill:'#0f2a22',stroke:'#1f5c46','stroke-width':1,'data-in':'5'}));
+    const t=mk('text',{class:'num',x:x+35,y:442,'text-anchor':'middle',fill:'#a8f3cd','font-size':'13','data-in':'5'});
+    t.textContent=v; g.appendChild(t);
+  });
+  const lb=mk('text',{x:660,y:474,fill:'#5b6577','font-size':'10.5','data-in':'5'});
+  lb.textContent='「垫子」在这一层的新表示（3 维示意）'; g.appendChild(lb);
+})();
+
+/* s6：三个头 + 关闭细节面板 */
+const PATTERNS=[
+  {n:'头 1 · 只看相邻', rows:[[1],[0.5,0.5],[0.1,0.8,0.1],[0.05,0.1,0.8,0.05]]},
+  {n:'头 2 · 盯着句首', rows:[[1],[0.8,0.2],[0.7,0.1,0.2],[0.6,0.1,0.1,0.2]]},
+  {n:'头 3 · 抓主谓',   rows:[[1],[0.3,0.7],[0.45,0.45,0.1],[0.2,0.5,0.1,0.2]]}
+];
+PATTERNS.forEach((p,pi)=>{
+  const g=el('heads');
+  const ox=420+pi*176, oy=182, cs=26;
+  g.appendChild(mk('rect',{x:ox-10,y:oy-24,width:4*cs+20,height:4*cs+44,rx:9,fill:'#11161f',stroke:'#1e2530','stroke-width':1}));
+  p.rows.forEach((row,r)=>{
+    row.forEach((v,c)=>{
+      const x=ox+c*cs, y=oy+r*cs;
+      g.appendChild(mk('rect',{x:x,y:y,width:cs-2,height:cs-2,rx:3,fill:'#22d3ee','fill-opacity':0.05+v*0.6}));
+    });
+  });
+  const t=mk('text',{x:ox+2*cs-4,y:oy+4*cs+28,'text-anchor':'middle',fill:'#818b9c','font-size':'10.5'});
+  t.textContent=p.n; g.appendChild(t);
+});
+
+/* 第 6 步：右侧细节面板让位 */
+['pt','scores','weights','mix','maskArrow','mixArrow'].forEach(id=>{
+  const e=el(id); if(e) e.setAttribute('data-out','6');
+});
+document.querySelectorAll('#scores [data-in="2"],#weights [data-in="4"],#mix [data-in="5"],#maskArrow [data-in="3"],#mixArrow [data-in="5"]').forEach(e=>{
+  if(!e.hasAttribute('data-out')) e.setAttribute('data-out','6');
+});
+// 左侧矩阵保持，s6 只做轻微淡出
+// 左侧矩阵保留：最后一步需要它做上下文
+</script>
+<script src="player.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+/* 动画播放器 · 共用样式
+   一课一个 HTML，SVG 内联，控制逻辑全在这里。 */
+
+:root{
+  --bg:#0b0d11; --bg2:#0e1116; --panel:#12161d; --panel2:#171c25;
+  --line:#232a36; --line2:#2e3746;
+  --ink:#e7eaf0; --ink2:#b6bdcb; --muted:#818b9c;
+  --cy:#22d3ee; --vi:#a78bfa; --em:#34d399; --am:#fbbf24; --ro:#fb7185;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:400 15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Noto Sans SC",sans-serif;
+  -webkit-font-smoothing:antialiased; min-height:100vh;
+}
+.wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:22px 0 0;font-size:12.5px}
+.top a{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent;padding-bottom:1px}
+.top a:hover{color:var(--ink);border-color:var(--line2)}
+.top .tag{color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
+
+.head{padding:26px 0 18px}
+.head h1{font-size:23px;line-height:1.45;margin:0 0 6px;font-weight:600;letter-spacing:-.015em}
+.head .sub{color:var(--ink2);font-size:13.5px;margin:0;max-width:640px}
+
+/* 画布 */
+.stage{
+  border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  background:
+    radial-gradient(110% 80% at 8% 0%,rgba(34,211,238,.05),transparent 55%),
+    radial-gradient(90% 70% at 95% 10%,rgba(167,139,250,.055),transparent 60%),
+    var(--bg2);
+}
+.stage svg{display:block;width:100%;height:auto}
+text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",sans-serif}
+.num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+
+/* 步骤元素：默认隐藏，data-in 到点显示 */
+[data-in]{opacity:0;transition:opacity .42s ease,transform .42s cubic-bezier(.2,.8,.2,1)}
+[data-in].is-in{opacity:1}
+[data-out]{transition:opacity .3s ease}
+[data-out].is-out{opacity:0;pointer-events:none}
+[data-on].is-on{transition:all .3s}
+
+/* HUD */
+.hud{
+  display:flex;gap:20px;align-items:flex-start;justify-content:space-between;
+  padding:18px 2px 0;min-height:112px;
+}
+.hud .txt{flex:1;min-width:0}
+.hud .stepno{
+  font:500 11px/1 ui-monospace,monospace;color:var(--muted);letter-spacing:.1em;
+}
+.hud h2{font-size:16px;font-weight:600;margin:7px 0 5px;line-height:1.5}
+.hud p{margin:0;font-size:14px;color:var(--ink2);line-height:1.75;max-width:620px}
+.hud p b{color:var(--ink);font-weight:500}
+.hud p code{
+  font:400 12.5px/1 ui-monospace,monospace;background:#0a0d12;border:1px solid var(--line);
+  border-radius:4px;padding:1px 5px;color:#9fe6c8;
+}
+
+.ctl{display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex:none}
+.btns{display:flex;gap:6px}
+.btns button{
+  font:inherit;font-size:12.5px;cursor:pointer;color:var(--ink2);
+  background:var(--panel);border:1px solid var(--line2);border-radius:8px;
+  padding:6px 13px;transition:border-color .15s,color .15s,background .15s;
+}
+.btns button:hover:not(:disabled){color:var(--ink);border-color:#48556b;background:var(--panel2)}
+.btns button:disabled{opacity:.35;cursor:default}
+.btns button.primary{background:#0f2a22;border-color:#1f5c46;color:#a8f3cd}
+.btns button.primary:hover{background:#12362b;border-color:#2f8a68;color:#c6f8dd}
+.dots{display:flex;gap:5px}
+.dots button{
+  width:16px;height:4px;border-radius:2px;border:0;padding:0;cursor:pointer;
+  background:#2a3240;transition:background .2s,width .2s;
+}
+.dots button:hover{background:#48556b}
+.dots button.on{background:var(--cy);width:24px}
+
+.foot{
+  display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  border-top:1px solid var(--line);margin-top:34px;padding:16px 0 54px;
+  font-size:12.5px;color:var(--muted);
+}
+.foot a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--line2)}
+.foot a:hover{color:var(--ink)}
+
+@media(max-width:640px){
+  .head h1{font-size:20px}
+  .hud{flex-direction:column;gap:14px}
+  .ctl{align-items:flex-start;width:100%}
+  .hud p{font-size:13.5px}
+}
+@media (prefers-reduced-motion:reduce){
+  [data-in],[data-out],[data-on]{transition:none!important}
+}
