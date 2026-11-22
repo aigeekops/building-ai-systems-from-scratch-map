@@ -34,6 +34,7 @@ h1{font-size:29px;line-height:1.35;margin:12px 0 10px;letter-spacing:-.02em;font
 .stat .v{font:600 22px/1 ui-monospace,monospace;letter-spacing:-.02em;color:var(--ink)}
 .stat .v.ok{color:var(--ok)}
 .stat .k{font-size:11.5px;color:var(--muted);margin-top:5px;letter-spacing:.04em}
+.publication-summary{margin:12px 0 0;font-size:12.5px;color:var(--muted)}
 .resume{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:20px 0 0}
 .resume[hidden]{display:none}
 .resume button{cursor:pointer}
@@ -58,23 +59,7 @@ h1{font-size:29px;line-height:1.35;margin:12px 0 10px;letter-spacing:-.02em;font
 .ecard .go.primary{background:#0f2a22;border-color:#1f5c46;color:#a8f3cd}
 .ecard .go.primary:hover{border-color:#2f8a68}
 
-/* 连载进度 */
-.serial{margin:30px 0 0;border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:16px 20px 10px}
-.lv-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
-.lv-top h2{font-size:14px;font-weight:600;margin:0;letter-spacing:.02em;white-space:nowrap}
-.lv-n{font:400 12px/1.4 ui-monospace,monospace;color:var(--muted);text-align:right}
-.lv-bar{height:3px;border-radius:2px;background:#1d2531;margin:11px 0 2px;overflow:hidden}
-.lv-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#34d399);border-radius:2px;transition:width .5s}
-.lv-list{margin-top:2px}
-.lv-grp{font-size:10.5px;letter-spacing:.12em;color:#5f6878;padding:11px 0 2px}
-.lv-item{display:flex;align-items:baseline;gap:9px;padding:7px 0;border-top:1px solid #1b222c;font-size:13px;line-height:1.6}
-.lv-grp + .lv-item{border-top:0}
-.lv-item .w{font:500 10.5px/1 ui-monospace,monospace;color:var(--muted);flex:none;width:58px;padding-top:3px}
-.lv-item .tt{flex:1;min-width:0;color:var(--ink2)}
-.lv-item a.tt{color:var(--ink);text-decoration:none;border-bottom:1px solid #2e3746}
-.lv-item a.tt:hover{border-color:#22d3ee;color:#a5f3fc}
-.lv-more{margin:8px 0 4px;background:none;border:1px dashed var(--line2);color:var(--muted);border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer}
-.lv-more:hover{color:var(--ink2);border-color:#3c4757}
+/* 文章状态 */
 .st{font-size:10.5px;line-height:1.5;padding:1px 7px;border-radius:999px;flex:none;white-space:nowrap}
 .st.live{color:#8ef0c4;background:#0f2a22;border:1px solid #1f5c46}
 .st.draft{color:#f3d68a;background:#241d0c;border:1px solid #5c4a1f}
@@ -238,7 +223,7 @@ footer .note{max-width:560px}
 }
 @media(prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
-  .row,.fchip,.ucard,.drawer,.scrim,.lv-bar i{transition:none}
+  .row,.fchip,.ucard,.drawer,.scrim{transition:none}
 }
 </style>
 </head>
@@ -249,6 +234,8 @@ footer .note{max-width:560px}
   <h1>30 周，把 AI 系统一块一块建起来</h1>
   <p class="lead">每周两讲：周二讲原理，周五动手实现，周末交一个能被检验的产出。<b>W1–19 是所有人都要走的共同主干</b>，之后可以按「模型与系统」或「Agent 工程」加深。每一周都指向仓库里的一个目录，并写清运行环境与最低工程证据。</p>
   <div class="stats" id="stats"></div>
+  <!-- 临时发布看板，正式上线前移除 -->
+  <p class="publication-summary" id="publication-summary"></p>
   <div class="resume" id="resume" hidden>
     <button id="resume-btn" type="button">继续上次：<b id="resume-t"></b> →</button>
     <button id="reset-done" class="linkbtn" type="button">清空我的进度</button>
@@ -281,17 +268,6 @@ footer .note{max-width:560px}
         <button class="go" type="button" id="go-agent">跳到 W18 →</button>
       </div>
     </div>
-  </section>
-</div>
-
-<div class="wrap">
-  <section class="serial" aria-labelledby="lv-h">
-    <div class="lv-top">
-      <h2 id="lv-h">专题连载</h2>
-      <span class="lv-n" id="lv-n"></span>
-    </div>
-    <div class="lv-bar" aria-hidden="true"><i id="lv-fill"></i></div>
-    <div class="lv-list" id="lv-list"></div>
   </section>
 </div>
 
@@ -449,7 +425,6 @@ function saveProgress(){
 
 /* ===== 文章状态 ===== */
 const SLOTS = WEEKS.length * 2;
-const POSTS = WEEKS.flatMap(x => (x.p || []).map(p => ({...p, w:x.w})));
 const ST_TEXT = {live:'已发', draft:'草稿箱', written:'已写好', planned:'未写'};
 const slotOf = (x, s) => (x.p || []).find(p => p.s === s || p.s === 'both');
 const markOf = x => {
@@ -459,8 +434,6 @@ const markOf = x => {
   if (ps.length) return 'written';
   return '';
 };
-const livePosts = POSTS.filter(p => p.st === 'live');
-const pendingPosts = POSTS.filter(p => p.st === 'draft' || p.st === 'written');
 
 /* ===== 头部统计 ===== */
 function renderStats(){
@@ -470,7 +443,6 @@ function renderStats(){
     [MODULES.length, '个模块', ''],
     [SLOTS, '讲', ''],
     [UNITS.length, '个代码单元', ''],
-    [`${livePosts.length} / ${SLOTS}`, '正文已发', '#34d399'],
     [`${done} / ${WEEKS.length}`, '我的进度', done ? '#34d399' : '']
   ].map(([v, k, c]) => `<div class="stat"><div class="v"${c ? ` style="color:${c}"` : ''}>${v}</div><div class="k">${k}</div></div>`).join('');
 
@@ -482,52 +454,6 @@ function renderStats(){
   } else {
     resume.hidden = true;
   }
-}
-
-/* ===== 连载区 ===== */
-let serialOpen = false;
-function renderSerial(){
-  const list = $('#lv-list');
-  const pct = SLOTS ? (livePosts.length / SLOTS * 100).toFixed(1) : 0;
-  $('#lv-fill').style.width = pct + '%';
-  $('#lv-n').textContent =
-    `正文已发 ${livePosts.length} / ${SLOTS} 篇` +
-    (pendingPosts.length ? ` · 另有 ${pendingPosts.length} 篇写好待发` : '');
-
-  let html = '<div class="lv-grp">入口文章 · 不占 60 格</div>';
-  if (!INTRO.length) {
-    html += `<div class="lv-item"><span class="w">—</span><span class="tt" style="color:#5b6577">未登记</span></div>`;
-  }
-  INTRO.forEach(i => {
-    html += `<div class="lv-item"><span class="w">入口 ${i.no}</span>` +
-      (i.article
-        ? `<a class="tt" href="${esc(i.article)}" target="_blank" rel="noopener">${esc(i.name)}</a><span class="st live">已群发</span>`
-        : `<span class="tt">${esc(i.name)}</span><span class="st ${i.stage === 'shipped' ? 'live' : 'draft'}">${i.stage === 'shipped' ? '已群发' : '草稿箱待发'}</span>`) +
-      `</div>`;
-  });
-
-  html += '<div class="lv-grp">正文 · 每周二原理 / 周五实践</div>';
-  if (!POSTS.length) {
-    html += `<div class="lv-item"><span class="w">—</span><span class="tt" style="color:#5b6577">正文还没登记。写好的稿子先排在这里，发出后变成链接。</span></div>`;
-    list.innerHTML = html;
-    return;
-  }
-  const sorted = POSTS.slice().sort((a, b) => b.w - a.w || (a.s === 'theory' ? -1 : 1));
-  const shown = serialOpen ? sorted : sorted.slice(0, 8);
-  shown.forEach(p => {
-    const tag = p.s === 'both' ? '一篇' : p.s === 'theory' ? '周二' : '周五';
-    html += `<div class="lv-item"><span class="w">W${pad(p.w)} ${tag}</span>` +
-      (p.url
-        ? `<a class="tt" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.t)}</a><span class="st live">已发</span>`
-        : `<span class="tt">${esc(p.t)}</span><span class="st ${p.st}">${ST_TEXT[p.st] || '未写'}</span>`) +
-      `</div>`;
-  });
-  if (sorted.length > 8) {
-    html += `<button class="lv-more" type="button" id="lv-more">${serialOpen ? '收起' : `展开全部 ${sorted.length} 篇`}</button>`;
-  }
-  list.innerHTML = html;
-  const more = $('#lv-more');
-  if (more) more.addEventListener('click', () => { serialOpen = !serialOpen; renderSerial(); });
 }
 
 /* ===== 筛选 ===== */
@@ -843,7 +769,14 @@ $('#reset-done').addEventListener('click', () => {
 
 /* ===== 启动 ===== */
 renderStats();
-renderSerial();
+
+// 临时发布看板，正式上线前移除。
+const posts = WEEKS.flatMap(w => w.p || []);
+const published = posts.filter(p => p.st === 'live').length;
+const pending = posts.filter(p => p.st === 'draft' || p.st === 'written').length;
+$('#publication-summary').textContent = `正文已发 ${published} / ${SLOTS} 篇` +
+  (pending ? ` · 另有 ${pending} 篇写好待发` : '');
+
 renderFilters();
 renderGrid();
 renderUnits();
