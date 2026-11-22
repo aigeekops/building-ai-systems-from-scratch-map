@@ -4,7 +4,8 @@
      元素加 data-in="3"   → 第 3 步及之后可见
      元素加 data-out="5"  → 第 5 步及之后隐藏
      元素加 data-on="4"   → 仅第 4 步加 .is-on（配合页面自己的 CSS 做强调）
-     <script type="application/json" id="script">[{"t":"标题","say":"说明"}]</script>
+     <script type="application/json" id="script">[{"t":"标题","say":"说明","pause":true}]</script>
+     pause（可选）：自动播放走到这一帧时停下。
    深链：#s3 直达第 3 步。
 */
 (function(){
@@ -47,7 +48,10 @@
     ttl.textContent = s.t || '';
     say.innerHTML = s.say || '';
     stepno.textContent = String(n+1).padStart(2,'0') + ' / ' + String(N).padStart(2,'0');
-    [...dots.children].forEach((d,i)=>d.classList.toggle('on', i===n));
+    [...dots.children].forEach((d,i)=>{
+      d.classList.toggle('on', i===n);
+      d.setAttribute('aria-current', i===n ? 'step' : 'false');
+    });
     btnPrev.disabled = n === 0;
     btnNext.disabled = n === N-1;
     btnPlay.textContent = timer ? '暂停' : (n === N-1 ? '重放' : '播放');
@@ -56,6 +60,7 @@
 
   function go(n){
     cur = Math.max(0, Math.min(N-1, n));
+    if(timer && steps[cur]?.pause) stop();
     apply(cur);
   }
 
@@ -79,6 +84,10 @@
   btnPlay.addEventListener('click', play);
 
   addEventListener('keydown', e=>{
+    if(e.target instanceof HTMLElement){
+      if(e.target.isContentEditable || e.target.matches('input,select,textarea')) return;
+      if(e.key === ' ' && e.target.closest('button,a,summary')) return;
+    }
     if(e.key === 'ArrowRight' || e.key === ' '){ e.preventDefault(); stop(); go(cur+1); }
     if(e.key === 'ArrowLeft'){ e.preventDefault(); stop(); go(cur-1); }
     if(e.key === 'Home'){ e.preventDefault(); stop(); go(0); }

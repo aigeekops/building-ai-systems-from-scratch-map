@@ -10,23 +10,116 @@
   .edge{transition:stroke .3s,stroke-width .3s}
   .edge.on{stroke:#22d3ee;stroke-width:2.2}
   .edge.on2{stroke:#a78bfa;stroke-width:2.2}
-  .stepbox{transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+  .mobile-stage,.shared-gradient{display:none}
+  .w04[data-cur="5"] .desktop-stage,.w04[data-cur="5"] .mobile-stage{display:none}
+  .w04[data-cur="5"] .shared-gradient{display:block}
+  .w04 .hud{min-height:0;padding:0 2px 14px}
+  .w04 .btns button{min-height:44px}
+  .w04 .dots{counter-reset:step}
+  .w04 .dots button{
+    counter-increment:step;width:28px;height:28px;border-radius:5px;color:var(--ink2);
+    font:500 12px ui-monospace,monospace;
+  }
+  .w04 .dots button::after{content:counter(step)}
+  .w04 .dots button.on{background:#16404a;color:#bff5fb}
+  .w04 button:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+
+  .shared-gradient{padding:clamp(14px,4vw,27px)}
+  .shared-gradient p{margin:0}
+  .gradient-board{max-width:480px;margin:14px auto;text-align:center}
+  .gradient-sources,.mobile-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .gradient-sources>span,.gradient-target,.mobile-node{
+    background:var(--panel);border:1px solid var(--line2);border-radius:7px;padding:5px 8px;
+  }
+  .gradient-sources{justify-items:center}
+  .gradient-paths{height:74px;position:relative}
+  .gradient-paths svg{height:100%}
+  .gradient-paths path{fill:none;stroke:var(--line2);stroke-width:1.5;vector-effect:non-scaling-stroke}
+  .gradient-board[data-revealed] path.gradient-left{stroke:var(--cy)}
+  .gradient-board[data-revealed] path.gradient-right{stroke:var(--am)}
+  .gradient-packet{
+    position:absolute;top:0;transform:translate(-50%,-50%);border-radius:5px;padding:0 6px;
+    font:600 14px/1.55 ui-monospace,monospace;color:#10232a;opacity:0;
+  }
+  .gradient-packet.gradient-left{left:25%;background:var(--cy)}
+  .gradient-packet.gradient-right{left:75%;background:var(--am)}
+  .gradient-target{display:inline-block;min-width:154px}
+  .gradient-total{display:block;min-height:1.75em;visibility:hidden;color:#a5f3fc}
+  .gradient-board[data-revealed] .gradient-total{visibility:visible;animation:show-gradient .16s .84s both}
+  .gradient-board[data-revealed] .gradient-packet{animation:return-gradient .58s ease-in-out both}
+  .gradient-board[data-revealed] .gradient-packet.gradient-right{animation-delay:.28s}
+  @keyframes return-gradient{
+    0%{opacity:0} 14%,78%{opacity:1} 100%{top:100%;left:50%;opacity:0}
+  }
+  @keyframes show-gradient{from{opacity:0}to{opacity:1}}
+  .gradient-controls{flex-wrap:wrap}
+  .gradient-controls button[aria-pressed="true"]{border-color:var(--cy);background:#16404a;color:#bff5fb}
+  .gradient-feedback:not(:empty){margin-top:10px;color:var(--ink2)}
+
+  @media(max-width:640px){
+    .w04 .wrap{padding:0 15px}
+    .w04 .head{padding:20px 0 14px}
+    .w04 .hud{gap:10px}
+    .w04 .ctl{gap:7px}
+    .w04 .ctl .btns,.w04 .dots{width:100%;display:grid}
+    .w04 .ctl .btns{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .w04 .dots{grid-template-columns:repeat(4,minmax(44px,1fr))}
+    .w04 .dots button{width:auto;min-width:44px;min-height:44px;font-size:14px}
+    .w04 .gradient-controls button{flex:1 0 auto;font-size:14px}
+    .w04 .desktop-stage{display:none}
+    .w04 .mobile-stage{display:block;padding:12px}
+    .mobile-node{display:block;min-width:0;text-align:center;font-size:14px;overflow-wrap:anywhere}
+    .mobile-node .gradient-value{display:block;color:var(--em)}
+    .mobile-connector{text-align:center;line-height:1.2;padding:3px;color:var(--cy)}
+    .mobile-connector .backward{display:none}
+    .w04:is([data-cur="2"],[data-cur="3"],[data-cur="4"]) .mobile-connector .forward{display:none}
+    .w04:is([data-cur="2"],[data-cur="3"],[data-cur="4"]) .mobile-connector .backward{display:inline}
+    .mobile-update,.mobile-curve{display:none}
+    .w04[data-cur="6"] .mobile-update,.w04[data-cur="7"] .mobile-curve{display:block}
+    .w04:is([data-cur="6"],[data-cur="7"]) .mobile-graph{display:none}
+    .mobile-stage p{margin:0}
+    .mobile-stage [data-in]:not(.is-in){visibility:hidden}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .edge,.gradient-paths path{transition:none}
+    .gradient-board[data-revealed] :is(.gradient-packet,.gradient-total){animation:none}
+    .gradient-board[data-revealed] .gradient-packet{opacity:1;top:56%;left:39%}
+    .gradient-board[data-revealed] .gradient-packet.gradient-right{left:61%}
+  }
 </style>
 </head>
-<body class="lesson" data-steps="8">
+<body class="lesson w04" data-steps="8">
 <div class="wrap">
 
   <div class="top">
-    <a href="../index.html">← 学习地图</a>
+    <a href="../index.html#w4">← 学习地图</a>
     <span class="tag">UNIT 03 · MINI AUTOGRAD</span>
   </div>
 
   <div class="head">
     <h1>反向传播：梯度是怎么一层层传回去的</h1>
-    <p class="sub">四个节点、一条链，把 <span class="num">∂L/∂L → ∂L/∂a → ∂L/∂w</span> 走一遍。数字与 <span class="num">units/03-mini-autograd</span> 里跑出来的一致。</p>
+    <p class="sub">先算出误差，再顺着计算图往回找：哪个量改变一点，误差会跟着变多少？</p>
   </div>
 
-  <div class="stage">
+  <div class="hud">
+    <div class="txt">
+      <div class="stepno" id="stepno">01 / 08</div>
+      <div aria-live="polite">
+        <h2 id="ttl"></h2>
+        <p id="say"></p>
+      </div>
+    </div>
+    <div class="ctl">
+      <div class="btns">
+        <button id="prev" type="button">上一步</button>
+        <button id="next" type="button" class="primary">下一步 →</button>
+        <button id="play" type="button">播放</button>
+      </div>
+      <div class="dots" id="dots" role="group" aria-label="跳到动画步骤"></div>
+    </div>
+  </div>
+
+  <div class="stage desktop-stage">
     <svg viewBox="0 0 980 470" role="img" aria-label="反向传播计算图">
       <defs>
         <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
@@ -80,15 +173,6 @@
       <text id="g-x" class="num" data-in="4" x="130" y="186" text-anchor="middle" fill="#34d399" font-size="11.5">∂L/∂x = 0.50</text>
       <text id="g-w" class="num" data-in="4" x="130" y="366" text-anchor="middle" fill="#34d399" font-size="11.5">∂L/∂w = 1.00</text>
 
-      <!-- 第 5 步：分叉累加 -->
-      <g id="branch" data-in="5">
-        <rect x="300" y="330" width="230" height="100" rx="10" fill="#1a1420" stroke="#4c3570" stroke-width="1" stroke-dasharray="4 3"/>
-        <text x="318" y="354" fill="#c4b5fd" font-size="11.5">如果 a 还被别处用了</text>
-        <text x="318" y="376" fill="#a1a1aa" font-size="11" font-family="ui-monospace,monospace">∂L/∂a += 另一条路径的梯度</text>
-        <text x="318" y="398" fill="#a1a1aa" font-size="11" font-family="ui-monospace,monospace">不是覆盖，是累加</text>
-        <text x="318" y="418" fill="#7e6f9e" font-size="10.5">所以缓冲区必须先 zero_grad()</text>
-      </g>
-
       <!-- 第 6 步：更新 -->
       <g id="upd" data-in="6">
         <rect x="670" y="110" width="270" height="104" rx="10" fill="#0f2a22" stroke="#1f5c46" stroke-width="1"/>
@@ -102,33 +186,69 @@
       <g id="curve" data-in="7">
         <rect x="670" y="240" width="270" height="190" rx="10" fill="#11161f" stroke="#1e2530" stroke-width="1"/>
         <text x="690" y="264" fill="#5b6577" font-size="10.5" letter-spacing=".08em">XOR · 3000 轮</text>
-        <polyline points="690,300 710,342 735,376 765,396 805,406 850,411 900,413 920,414"
+        <polyline points="690,296 691,334 694,341 698,348 706,362 713,379 736,409 782,416 828,417 874,417 920,418"
           fill="none" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        <text x="690" y="294" fill="#5b6577" font-size="10" font-family="ui-monospace,monospace">0.25</text>
-        <text x="916" y="398" text-anchor="end" fill="#7dd3e8" font-size="10.5" font-family="ui-monospace,monospace">0.001</text>
+        <text x="690" y="290" fill="#818b9c" font-size="10" font-family="ui-monospace,monospace">0.335945</text>
+        <text x="916" y="398" text-anchor="end" fill="#7dd3e8" font-size="10.5" font-family="ui-monospace,monospace">0.001004</text>
         <text x="690" y="424" fill="#4b5464" font-size="10">epoch</text>
       </g>
     </svg>
   </div>
 
-  <div class="hud">
-    <div class="txt">
-      <div class="stepno" id="stepno">01 / 08</div>
-      <h2 id="ttl"></h2>
-      <p id="say"></p>
-    </div>
-    <div class="ctl">
-      <div class="btns">
-        <button id="prev" type="button">上一步</button>
-        <button id="next" type="button" class="primary">下一步 →</button>
-        <button id="play" type="button">播放</button>
+  <div class="stage mobile-stage" aria-label="反向传播图解">
+    <div class="mobile-graph">
+      <div class="mobile-inputs">
+        <div class="mobile-node">输入 <code>x<span data-in="1"> = 1.0</span></code><span class="gradient-value" data-in="4">梯度 0.50</span></div>
+        <div class="mobile-node">权重 <code>w<span data-in="1"> = 0.5</span></code><span class="gradient-value" data-in="4">梯度 1.00</span></div>
       </div>
-      <div class="dots" id="dots"></div>
+      <div class="mobile-connector" aria-hidden="true"><span class="forward">↓</span><span class="backward">↑</span></div>
+      <div class="mobile-inputs">
+        <div class="mobile-node"><code>a = x×w<span data-in="1"> = 0.5</span></code><span class="gradient-value" data-in="3">梯度 1.00</span></div>
+        <div class="mobile-node">标签 <code>y<span data-in="1"> = 0</span></code></div>
+      </div>
+      <div class="mobile-connector" aria-hidden="true"><span class="forward">↓</span><span class="backward">↑</span></div>
+      <div class="mobile-node">损失 <code>L = (a−y)²<span data-in="1"> = 0.25</span></code><span class="gradient-value" data-in="2">起始梯度 1</span></div>
+    </div>
+    <p class="mobile-update"><code>w = 0.5 − 0.1 × 1.0 = 0.4</code><br>重算损失：<code>(0.4 − 0)² = 0.16</code></p>
+    <div class="mobile-curve">
+      <p>XOR 训练损失：<code>0.335945 → 0.001004</code></p>
+      <svg viewBox="0 0 320 94" role="img" aria-label="XOR 模型训练损失随轮次下降">
+        <polyline points="12,8 13,29.8 16.9,34.1 21.8,37.9 31.7,46 41.5,55.6 71,73 130,77 189.1,77.5 248.1,77.7 307,77.8"
+          fill="none" stroke="#22d3ee" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
     </div>
   </div>
 
+  <section class="stage shared-gradient" aria-label="梯度累加小练习">
+    <p>两个乘数都是同一个 <code>a</code>。先猜它最后收到多少梯度。</p>
+    <div class="gradient-board" aria-hidden="true">
+      <div class="gradient-sources">
+        <span>乘式左边的 <code>a</code></span>
+        <span>乘式右边的 <code>a</code></span>
+      </div>
+      <div class="gradient-paths">
+        <svg viewBox="0 0 200 74" preserveAspectRatio="none">
+          <path class="gradient-left" d="M50 0 L100 74"/>
+          <path class="gradient-right" d="M150 0 L100 74"/>
+        </svg>
+        <span class="gradient-packet gradient-left">+3</span>
+        <span class="gradient-packet gradient-right">+3</span>
+      </div>
+      <div class="gradient-target">
+        同一个 <code>a</code>
+        <strong class="gradient-total num">a.grad = 3 + 3 = 6</strong>
+      </div>
+    </div>
+    <div class="btns gradient-controls" role="group" aria-label="预测 a 的梯度">
+      <button type="button" data-guess="3" aria-pressed="false">我猜是 3</button>
+      <button type="button" data-guess="6" aria-pressed="false">我猜是 6</button>
+      <button type="button" id="gradient-replay" hidden>重播两条路径</button>
+    </div>
+    <p class="gradient-feedback" id="gradient-feedback" role="status"></p>
+  </section>
+
   <div class="foot">
-    <span>数字来自 <span class="num">units/03-mini-autograd/examples/xor.py</span>（seed=42, 3000 轮）。</span>
+    <span>累加练习对应 <span class="num">tests/test_autograd.py</span>。XOR 曲线按 <span class="num">docs/loss.csv</span> 抽样绘制。</span>
     <span>← → 键可以走</span>
   </div>
 </div>
@@ -145,27 +265,49 @@
   "say":"<code>L = (a − y)²</code>，所以 <code>∂L/∂a = 2(a − y) · ∂L/∂L = 1.0</code>。前面那项是这个节点自己的局部导数，后面那项是从上游流进来的 —— 链式法则在代码里就是这个长相。"},
  {"t":"再往前：乘法节点要交换两个操作数",
   "say":"<code>∂L/∂x = ∂L/∂a · w = 0.5</code>，<code>∂L/∂w = ∂L/∂a · x = 1.0</code>。注意乘的是<b>对方的</b>值，不是自己的。这一步几乎所有人第一次写都会记反。"},
- {"t":"一个节点被用两次，梯度是加不是盖",
-  "say":"如果 a 还参与了别处的计算，它收到的是两条路径之和：<code>∂L/∂a += ...</code>。所以梯度缓冲区必须能累加，也必须在每轮开始时清零 —— <code>zero_grad()</code> 不是形式主义。"},
+ {"t":"同一个变量用了两次，梯度是多少？",
+  "say":"换一个小例子。设 <code>a = 3</code>，损失 <code>L = a × a = 9</code>。",
+  "pause":true},
  {"t":"更新：往梯度的反方向挪一步",
-  "say":"<code>w ← w − lr · ∂L/∂w = 0.5 − 0.1 × 1.0 = 0.4</code>。整个训练循环，就是把上面这几步重复 3000 次。"},
+  "say":"回到前面的权重例子。<code>w ← 0.5 − 0.1 × 1.0 = 0.4</code>。重算损失得到 <code>(0.4 − 0)² = 0.16</code>。"},
  {"t":"3000 轮之后",
-  "say":"损失从 0.25 掉到 0.001。这一课没有魔法，只有链式法则被正确执行了 3000 次 —— 你自己 clone 下来跑 <code>examples/xor.py</code>，出来的就是这条曲线。"}
+  "say":"完整的 XOR 模型也重复前向、反向和更新。运行 <code>examples/xor.py</code>，3000 轮实测损失从 0.335945 降到 0.001004。"}
 ]
 </script>
 
 <script>
-/* 边的高亮：第 2 步点 L，第 3 步点 a→L，第 4 步点两条输入的边 */
+/* 高亮当前回传到的边。 */
 const eAl=document.getElementById('e-al');
 const eXA=document.getElementById('e-xa');
 const eWA=document.getElementById('e-wa');
-document.body.addEventListener('transitionend',()=>{});
 new MutationObserver(()=>{
   const n=+document.body.dataset.cur;
   eAl.classList.toggle('on', n>=3);
   eXA.classList.toggle('on2', n>=4);
   eWA.classList.toggle('on2', n>=4);
 }).observe(document.body,{attributes:true,attributeFilter:['data-cur']});
+
+const gradientBoard = document.querySelector('.gradient-board');
+const gradientReplay = document.getElementById('gradient-replay');
+const gradientFeedback = document.getElementById('gradient-feedback');
+const guesses = document.querySelectorAll('[data-guess]');
+
+function revealGradients(){
+  gradientBoard.removeAttribute('data-revealed');
+  void gradientBoard.offsetWidth;
+  gradientBoard.setAttribute('data-revealed', '');
+}
+
+guesses.forEach(guess=>{
+  guess.addEventListener('click', ()=>{
+    guesses.forEach(button=>button.setAttribute('aria-pressed', String(button===guess)));
+    revealGradients();
+    gradientReplay.hidden = false;
+    const answer = guess.dataset.guess === '6' ? '对，是 6。' : '3 是一路的贡献。';
+    gradientFeedback.textContent = answer + '左边回传 +3，右边也回传 +3，两路写进同一个 a.grad，最后得到 6。代码里用 += 累加，下一轮反传前再清零。';
+  });
+});
+gradientReplay.addEventListener('click', revealGradients);
 </script>
 <script src="player.js"></script>
 </body>
